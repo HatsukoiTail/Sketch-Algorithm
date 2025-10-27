@@ -1,0 +1,3 @@
+D:/Github/Sketch-Algorithm/build/CMakeFiles/SketchAlgorithm.dir
+D:/Github/Sketch-Algorithm/build/CMakeFiles/edit_cache.dir
+D:/Github/Sketch-Algorithm/build/CMakeFiles/rebuild_cache.dir

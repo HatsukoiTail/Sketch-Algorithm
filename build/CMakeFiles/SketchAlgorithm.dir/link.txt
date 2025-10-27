@@ -1,0 +1,2 @@
+D:\Library\C++\MinGW\mingw64-14.2.0\bin\ar.exe qc libSketchAlgorithm.a CMakeFiles/SketchAlgorithm.dir/FunnelSketch/FunnelSketch.obj
+D:\Library\C++\MinGW\mingw64-14.2.0\bin\ranlib.exe libSketchAlgorithm.a
