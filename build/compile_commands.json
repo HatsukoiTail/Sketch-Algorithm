@@ -1,8 +1,0 @@
-[
-{
-  "directory": "D:/Github/Sketch-Algorithm/build",
-  "command": "D:\\Library\\C++\\MinGW\\mingw64-14.2.0\\bin\\g++.exe  @CMakeFiles/SketchAlgorithm.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\SketchAlgorithm.dir\\FunnelSketch\\FunnelSketch.obj -c D:\\Github\\Sketch-Algorithm\\FunnelSketch\\FunnelSketch.cpp",
-  "file": "D:/Github/Sketch-Algorithm/FunnelSketch/FunnelSketch.cpp",
-  "output": "CMakeFiles/SketchAlgorithm.dir/FunnelSketch/FunnelSketch.obj"
-}
-]
