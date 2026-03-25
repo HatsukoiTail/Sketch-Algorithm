@@ -36,14 +36,13 @@ public:
 
 private:
     void init(const Param& param);
-    static uint32_t hash(std::span<const uint8_t> key, size_t seed);
 
 private:
     double threshold_ratio = 0.0;
 
-    std::vector<std::vector<uint8_t>> lightCU;
+    std::vector<std::vector<uint8_t>> light_cu;
     std::vector<std::vector<Bucket>> buckets;
-    std::vector<uint32_t> heavyArray;
+    std::vector<uint32_t> heavy_array;
 };
 
 #endif // FUNNELSKETCH_H

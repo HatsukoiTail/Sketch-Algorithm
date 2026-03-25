@@ -1,6 +1,6 @@
 #include "FunnelSketch.h"
 
-// #include "hash.h"
+#include "Hash.h"
 
 #include <algorithm>
 
@@ -11,47 +11,35 @@ FunnelSketch::FunnelSketch(const Param &param)
 
 void FunnelSketch::init(const Param &param)
 {
-    this->lightCU.resize(param.light_layer, std::vector<uint8_t>(param.length_4bit / 2, 0));
+    this->light_cu.resize(param.light_layer, std::vector<uint8_t>(param.length_4bit / 2, 0));
     this->buckets.resize(param.middle_layer,
                          std::vector<Bucket>(param.length_bucket, Bucket{
                                                                       .array_8bit = std::vector<uint8_t>(param.length_8bit_per_bucket, 0),
                                                                       .array_16bit = std::vector<uint16_t>(param.length_16bit_per_bucket, 0),
                                                                       .key = {},
                                                                       .value = 0}));
-    this->heavyArray.resize(param.length_32bit, 0);
-}
-
-uint32_t FunnelSketch::hash(std::span<const uint8_t> key, size_t seed)
-{
-    // replace hash function here
-    uint32_t out;
-    // MurmurHash3_x86_32(&key, sizeof(key), static_cast<uint32_t>(seed), &out);
-    for (const auto &k : key)
-    {
-        out = k ^ out;
-    }
-    return out;
+    this->heavy_array.resize(param.length_32bit, 0);
 }
 
 uint32_t FunnelSketch::insert(std::span<const uint8_t> flowkey, uint32_t count)
 {
     // caclulate hash values
-    const size_t max_layer_num = std::max(this->lightCU.size(), this->buckets.size());
+    const size_t max_layer_num = std::max(this->light_cu.size(), this->buckets.size());
     std::vector<uint64_t> hash_values(max_layer_num, 0);
     for (auto layer = 0; layer < max_layer_num; ++layer)
     {
-        hash_values[layer] = this->hash(flowkey, layer);
+        hash_values[layer] = hash32(flowkey, layer);
     }
 
-    std::vector<std::pair<bool, std::reference_wrapper<uint8_t>>> lightCU_refs;
-    for (size_t layer = 0; layer < this->lightCU.size(); ++layer)
+    std::vector<std::pair<bool, std::reference_wrapper<uint8_t>>> light_cu_refs;
+    for (size_t layer = 0; layer < this->light_cu.size(); ++layer)
     {
-        size_t index = (hash_values[layer] % (this->lightCU[layer].size() * 2));
+        size_t index = (hash_values[layer] % (this->light_cu[layer].size() * 2));
         const bool is_low = !(index & 0x01);
-        lightCU_refs.emplace_back(is_low, std::ref(this->lightCU[layer][index / 2]));
+        light_cu_refs.emplace_back(is_low, std::ref(this->light_cu[layer][index / 2]));
     }
 
-    const auto &min_light_counter = *std::min_element(lightCU_refs.begin(), lightCU_refs.end(),
+    const auto &min_light_counter = *std::min_element(light_cu_refs.begin(), light_cu_refs.end(),
                                                       [](const auto &a, const auto &b)
                                                       {
                                                           uint8_t a_value = a.first ? (a.second.get() & 0x0F) : (a.second.get() >> 4);
@@ -65,34 +53,34 @@ uint32_t FunnelSketch::insert(std::span<const uint8_t> flowkey, uint32_t count)
 
     if (min_light_result < 15)
     {
-        for (auto &lightCU_ref : lightCU_refs)
+        for (auto &light_cu_ref : light_cu_refs)
         {
-            if (lightCU_ref.first)
+            if (light_cu_ref.first)
             {
-                const uint8_t value = lightCU_ref.second.get() & 0x0F;
-                const uint8_t counter_result = (std::min<uint8_t>(value + count, min_light_result) & 0x0F) | (lightCU_ref.second.get() & 0xF0);
-                lightCU_ref.second.get() = counter_result;
+                const uint8_t value = light_cu_ref.second.get() & 0x0F;
+                const uint8_t counter_result = (std::min<uint8_t>(value + count, min_light_result) & 0x0F) | (light_cu_ref.second.get() & 0xF0);
+                light_cu_ref.second.get() = counter_result;
             }
             else
             {
-                const uint8_t value = lightCU_ref.second.get() >> 4;
-                const uint8_t counter_result = (std::min<uint8_t>(value + count, min_light_result) << 4) | (lightCU_ref.second.get() & 0x0F);
-                lightCU_ref.second.get() = counter_result;
+                const uint8_t value = light_cu_ref.second.get() >> 4;
+                const uint8_t counter_result = (std::min<uint8_t>(value + count, min_light_result) << 4) | (light_cu_ref.second.get() & 0x0F);
+                light_cu_ref.second.get() = counter_result;
             }
         }
         return min_light_result;
     }
     else
     {
-        for (auto &lightCU_ref : lightCU_refs)
+        for (auto &light_cu_ref : light_cu_refs)
         {
-            if (lightCU_ref.first)
+            if (light_cu_ref.first)
             {
-                lightCU_ref.second.get() |= 0x0F;
+                light_cu_ref.second.get() |= 0x0F;
             }
             else
             {
-                lightCU_ref.second.get() |= 0xF0;
+                light_cu_ref.second.get() |= 0xF0;
             }
         }
     }
@@ -162,9 +150,9 @@ uint32_t FunnelSketch::insert(std::span<const uint8_t> flowkey, uint32_t count)
             remaining_count -= (65534 - bucket.value);
             bucket.value = 65535;
         }
-        const size_t index_32bit = hash_values[0] % this->heavyArray.size();
-        this->heavyArray[index_32bit] += remaining_count;
-        return 14 + 254 + 65534 + this->heavyArray[index_32bit];
+        const size_t index_32bit = hash_values[0] % this->heavy_array.size();
+        this->heavy_array[index_32bit] += remaining_count;
+        return 14 + 254 + 65534 + this->heavy_array[index_32bit];
     }
 
     // insert remaining count to 16bit array
@@ -203,9 +191,9 @@ uint32_t FunnelSketch::insert(std::span<const uint8_t> flowkey, uint32_t count)
             counter_ref.get() = 65535;
         }
         remaining_count -= (65534 - min_16bit);
-        const size_t index_32bit = hash_values[0] % this->heavyArray.size();
-        this->heavyArray[index_32bit] += remaining_count;
-        return_value = 14 + 254 + 65534 + this->heavyArray[index_32bit];
+        const size_t index_32bit = hash_values[0] % this->heavy_array.size();
+        this->heavy_array[index_32bit] += remaining_count;
+        return_value = 14 + 254 + 65534 + this->heavy_array[index_32bit];
     }
 
     auto &min_kv = *std::min_element(bucket_refs.begin(), bucket_refs.end(),
@@ -231,22 +219,22 @@ uint32_t FunnelSketch::insert(std::span<const uint8_t> flowkey, uint32_t count)
 
 uint32_t FunnelSketch::query(std::span<const uint8_t> key) const
 {
-    auto max_layer_num = std::max(this->lightCU.size(), this->buckets.size());
+    auto max_layer_num = std::max(this->light_cu.size(), this->buckets.size());
     std::vector<uint64_t> hash_values(max_layer_num, 0);
     for (auto layer = 0; layer < max_layer_num; ++layer)
     {
-        hash_values[layer] = hash(key, layer);
+        hash_values[layer] = hash32(key, layer);
     }
 
     uint32_t result = 0;
 
     // query lightCU
     uint8_t min_light_value = 255;
-    for (size_t layer = 0; layer < this->lightCU.size(); ++layer)
+    for (size_t layer = 0; layer < this->light_cu.size(); ++layer)
     {
-        size_t index = (hash_values[layer] % (this->lightCU[layer].size() * 2));
+        size_t index = (hash_values[layer] % (this->light_cu[layer].size() * 2));
         const bool is_low = !(index & 0x01);
-        const uint8_t counter_value = this->lightCU[layer][index / 2];
+        const uint8_t counter_value = this->light_cu[layer][index / 2];
         uint8_t value = is_low ? (counter_value & 0x0F) : (counter_value >> 4);
         min_light_value = std::min<uint8_t>(min_light_value, value);
     }
@@ -287,8 +275,8 @@ uint32_t FunnelSketch::query(std::span<const uint8_t> key) const
             }
             else
             {
-                size_t index_32bit = hash_values[0] % this->heavyArray.size();
-                result += this->heavyArray[index_32bit];
+                size_t index_32bit = hash_values[0] % this->heavy_array.size();
+                result += this->heavy_array[index_32bit];
                 return result;
             }
         }
@@ -311,9 +299,9 @@ uint32_t FunnelSketch::query(std::span<const uint8_t> key) const
     }
     result += 65534;
 
-    // query heavyArray
-    size_t index_32bit = hash_values[0] % this->heavyArray.size();
-    result += this->heavyArray[index_32bit];
+    // query heavy_array
+    size_t index_32bit = hash_values[0] % this->heavy_array.size();
+    result += this->heavy_array[index_32bit];
 
     return result;
 }
